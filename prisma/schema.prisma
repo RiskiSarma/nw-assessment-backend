@@ -1,0 +1,164 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  PM
+  INTERNAL
+  CLIENT_GUEST
+}
+
+enum Department {
+  PRODUCT
+  UI_UX
+  FRONTEND
+  BACKEND
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  BLOCKED
+}
+
+model User {
+  id         String      @id @default(cuid())
+  name       String
+  email      String      @unique
+  password   String
+  role       Role
+  department Department?
+  avatar     String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+
+  // Relations
+  assignedTasks    Task[]           @relation("TaskAssignee")
+  createdTasks     Task[]           @relation("TaskCreator")
+  auditLogs        AuditLog[]
+  projectMembers   ProjectMember[]
+
+  @@map("users")
+}
+
+model Client {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  password  String
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  projects  Project[]
+
+  @@map("clients")
+}
+
+model Project {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  clientId    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  client  Client          @relation(fields: [clientId], references: [id])
+  tasks   Task[]
+  members ProjectMember[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model Task {
+  id              String     @id @default(cuid())
+  projectId       String
+  title           String
+  description     String?
+  status          TaskStatus @default(TODO)
+  assigneeId      String?
+  createdById     String
+  isClientVisible Boolean    @default(false)
+  version         Int        @default(1)  // untuk optimistic locking
+  dueDate         DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+
+  project   Project  @relation(fields: [projectId], references: [id])
+  assignee  User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy User     @relation("TaskCreator", fields: [createdById], references: [id])
+
+  // Self-relation untuk dependencies
+  dependsOn    TaskDependency[] @relation("DependentTask")
+  dependedOnBy TaskDependency[] @relation("PrerequisiteTask")
+
+  attachments Attachment[]
+  auditLogs   AuditLog[]
+
+  @@map("tasks")
+}
+
+model TaskDependency {
+  id             String @id @default(cuid())
+  dependentId    String  // Task yang BLOCKED (misal: Task C)
+  prerequisiteId String  // Task yang harus DONE dulu (misal: Task A)
+
+  dependent    Task @relation("DependentTask", fields: [dependentId], references: [id])
+  prerequisite Task @relation("PrerequisiteTask", fields: [prerequisiteId], references: [id])
+
+  @@unique([dependentId, prerequisiteId])
+  @@map("task_dependencies")
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  taskId     String
+  uploadedBy String
+  filename   String
+  url        String
+  createdAt  DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  @@map("attachments")
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  taskId        String
+  userId        String
+  changedColumn String
+  oldValue      String?
+  newValue      String?
+  createdAt     DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
