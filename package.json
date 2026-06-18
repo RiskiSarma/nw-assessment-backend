@@ -30,6 +30,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
+    "postinstall": "bunx prisma generate",
     "db:migrate": "bunx prisma migrate dev --name init",
     "db:seed": "bun prisma/seed.ts",
     "db:push": "bunx prisma db push",
