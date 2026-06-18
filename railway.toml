@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "bun run db:deploy && bun run db:seed && bun run start"
+startCommand = "bunx prisma migrate deploy && bun src/index.ts"
 healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
